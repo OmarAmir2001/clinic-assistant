@@ -22,6 +22,7 @@ def to_out(doctor: Doctor) -> DoctorOut:
     return DoctorOut(
         id=doctor.id,
         name=doctor.name,
+        name_ar=doctor.name_ar,
         specialty=doctor.specialty,
         fee_egp=doctor.fee_egp,
         days=list(doctor.schedule),

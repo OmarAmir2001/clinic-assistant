@@ -1,1 +1,1 @@
-"""Repositories: the only code that reads or writes the database. (Sessions 5-6)"""
+"""Repositories: the only code that reads or writes the database. (PostgreSQL from Session 6)"""

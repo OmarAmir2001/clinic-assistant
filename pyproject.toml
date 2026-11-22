@@ -5,10 +5,12 @@ description = "Clinic Booking Assistant: answers clinic questions and books appo
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "asyncpg>=0.32",
     "fastapi[standard]>=0.165.0",
     "openai>=3.57.0",
     "pydantic-settings>=2.16.3",
     "pymupdf>=2.1",
+    "tzdata>=2026.6",
 ]
 
 [tool.fastapi]

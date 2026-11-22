@@ -16,7 +16,7 @@ class Appointment:
 
 
 class InMemoryAppointmentRepository:
-    """Keeps appointments in a dictionary. A restart loses them all: Sessions 5-6 replace this."""
+    """Keeps appointments in a dictionary. A restart loses them all: Session 6 moves them to PostgreSQL."""
 
     def __init__(self):
         self._by_reference: dict[str, Appointment] = {}

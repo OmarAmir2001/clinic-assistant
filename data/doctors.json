@@ -2,6 +2,7 @@
   {
     "id": 1,
     "name": "Dr. Mona Adel",
+    "name_ar": "د. منى عادل",
     "specialty": "dermatology",
     "fee_egp": 450,
     "schedule": {
@@ -13,6 +14,7 @@
   {
     "id": 2,
     "name": "Dr. Karim Hassan",
+    "name_ar": "د. كريم حسن",
     "specialty": "pediatrics",
     "fee_egp": 400,
     "schedule": {
@@ -24,6 +26,7 @@
   {
     "id": 3,
     "name": "Dr. Salma Fawzy",
+    "name_ar": "د. سلمى فوزي",
     "specialty": "internal-medicine",
     "fee_egp": 350,
     "schedule": {
@@ -37,6 +40,7 @@
   {
     "id": 4,
     "name": "Dr. Omar Nabil",
+    "name_ar": "د. عمر نبيل",
     "specialty": "dentistry",
     "fee_egp": 300,
     "schedule": {
