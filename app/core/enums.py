@@ -34,3 +34,10 @@ class Weekday(StrEnum):
     WEDNESDAY = "wednesday"
     THURSDAY = "thursday"
     FRIDAY = "friday"
+
+
+class DocumentType(StrEnum):
+    """The only kinds of file the clinic may upload (an allowlist)."""
+    PDF = "pdf"
+    TXT = "txt"
+    MD = "md"

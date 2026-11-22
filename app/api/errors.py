@@ -6,7 +6,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.errors import AppError, ConflictError, NotFoundError, UnavailableError
+from app.core.errors import (
+    AppError,
+    ConflictError,
+    EmptyDocumentError,
+    FileTooLargeError,
+    NotFoundError,
+    UnavailableError,
+    UnsupportedFileError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +23,9 @@ STATUS_FOR = {
     NotFoundError: status.HTTP_404_NOT_FOUND,
     ConflictError: status.HTTP_409_CONFLICT,
     UnavailableError: status.HTTP_503_SERVICE_UNAVAILABLE,
+    FileTooLargeError: status.HTTP_413_CONTENT_TOO_LARGE,
+    UnsupportedFileError: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+    EmptyDocumentError: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
 
@@ -41,8 +52,10 @@ async def validation_error_handler(request: Request, error: RequestValidationErr
 
 
 async def http_error_handler(request: Request, error: StarletteHTTPException) -> JSONResponse:
-    # Errors FastAPI raises itself, like a URL that doesn't exist (404) or a wrong method (405)
-    return error_response(error.status_code, "http_error", str(error.detail))
+    # Errors FastAPI raises itself, like a URL that doesn't exist (404) or a wrong method (405),
+    # and the size limit (413) from app/api/limits.py
+    code = "file_too_large" if error.status_code == 413 else "http_error"
+    return error_response(error.status_code, code, str(error.detail))
 
 
 async def unexpected_error_handler(request: Request, error: Exception) -> JSONResponse:

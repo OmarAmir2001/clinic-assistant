@@ -7,14 +7,18 @@ from fastapi import FastAPI
 from pydantic import ValidationError
 
 from app.api.errors import add_error_handlers
-from app.api.routes import appointments, chat, doctors, health
+from app.api.limits import BodySizeLimit
+from app.api.routes import appointments, chat, doctors, documents, health
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM
 from app.repositories.appointments import InMemoryAppointmentRepository
 from app.repositories.doctors import DoctorRepository
+from app.repositories.documents import InMemoryDocumentRepository
+from app.repositories.files import FileStore
 from app.services.answer import AnswerService
 from app.services.booking import BookingService
+from app.services.ingestion import IngestionService
 
 logger = logging.getLogger("app.main")
 
@@ -28,6 +32,11 @@ async def lifespan(app: FastAPI):
     app.state.booking_service = BookingService(
         DoctorRepository(settings.DOCTORS_PATH),
         InMemoryAppointmentRepository(),
+    )
+    app.state.ingestion_service = IngestionService(
+        FileStore(settings.UPLOAD_DIR, settings.max_upload_bytes),
+        InMemoryDocumentRepository(),
+        settings,
     )
     logger.info("%s is ready", settings.APP_NAME)
     yield
@@ -48,17 +57,21 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
-        description="Answers clinic questions and books appointments at Nile Family Clinic.",
+        description="Answers clinic questions, books appointments and takes in clinic documents at Nile Family Clinic.",
         lifespan=lifespan,
     )
     app.state.settings = settings
 
-    # 3. One error shape for everything, then one router per feature
+    # 3. No request bigger than the upload limit (plus a little room for the form around the file)
+    app.add_middleware(BodySizeLimit, max_bytes=settings.max_upload_bytes + 64 * 1024)
+
+    # 4. One error shape for everything, then one router per feature
     add_error_handlers(app)
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(doctors.router)
     app.include_router(appointments.router)
+    app.include_router(documents.router)
     return app
 
 
