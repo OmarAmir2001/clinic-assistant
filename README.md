@@ -19,17 +19,17 @@ Each session continues from the one before it.
 ```bash
 git clone <this repo>
 cd clinic-assistant
-git switch session-2
+git switch session-3
 ```
 
-## This branch: Session 2, Lightweight Design & Clean Architecture
+## This branch: Session 3, API Contracts & Validation
 
 ```bash
 cp .env.example .env      # then put your own key in .env
-uv run python -m app.main
+uv run fastapi dev
 ```
 
-Ask: *Is Dr. Mona Adel available on Thursday, and how much is the visit?*
+Open http://127.0.0.1:8000/docs to try every endpoint.
 
 You need Python 3.13 and [uv](https://docs.astral.sh/uv/). Never commit `.env`: it holds your API key.
 

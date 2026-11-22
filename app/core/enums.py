@@ -1,3 +1,4 @@
+# app/core/enums.py
 from enum import StrEnum
 
 
@@ -14,3 +15,22 @@ class Role(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+
+
+class Specialty(StrEnum):
+    """The clinic's medical specialties."""
+    DERMATOLOGY = "dermatology"
+    PEDIATRICS = "pediatrics"
+    INTERNAL_MEDICINE = "internal-medicine"
+    DENTISTRY = "dentistry"
+
+
+class Weekday(StrEnum):
+    """Days of the week, starting from Saturday like the clinic's week."""
+    SATURDAY = "saturday"
+    SUNDAY = "sunday"
+    MONDAY = "monday"
+    TUESDAY = "tuesday"
+    WEDNESDAY = "wednesday"
+    THURSDAY = "thursday"
+    FRIDAY = "friday"

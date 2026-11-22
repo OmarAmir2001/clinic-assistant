@@ -1,14 +1,16 @@
+# app/providers/llm/openai_compatible.py
 import logging
 from dataclasses import dataclass
 
 from openai import OpenAI, OpenAIError
 
 from app.core.config import Settings
+from app.core.errors import UnavailableError
 
 logger = logging.getLogger(__name__)
 
 
-class LLMError(Exception):
+class LLMError(UnavailableError):
     """The language model could not give us an answer."""
 
 

@@ -1,17 +1,40 @@
+# app/main.py
 import logging
 import sys
+from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
 from pydantic import ValidationError
 
+from app.api.errors import add_error_handlers
+from app.api.routes import appointments, chat, doctors, health
 from app.core.config import get_settings
 from app.core.logging import setup_logging
-from app.providers.llm.openai_compatible import LLMError, OpenAICompatibleLLM
+from app.providers.llm.openai_compatible import OpenAICompatibleLLM
+from app.repositories.appointments import InMemoryAppointmentRepository
+from app.repositories.doctors import DoctorRepository
 from app.services.answer import AnswerService
+from app.services.booking import BookingService
 
 logger = logging.getLogger("app.main")
 
 
-def main():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Runs once when the server starts (before `yield`) and once when it stops (after)."""
+    settings = app.state.settings
+    llm = OpenAICompatibleLLM(settings)
+    app.state.answer_service = AnswerService(llm, settings)
+    app.state.booking_service = BookingService(
+        DoctorRepository(settings.DOCTORS_PATH),
+        InMemoryAppointmentRepository(),
+    )
+    logger.info("%s is ready", settings.APP_NAME)
+    yield
+    logger.info("%s is shutting down", settings.APP_NAME)
+
+
+def create_app() -> FastAPI:
     # 1. Settings first: if anything is missing, stop here with a clear message
     try:
         settings = get_settings()
@@ -20,23 +43,23 @@ def main():
         problems = [f"  {problem['loc'][0]}: {problem['msg']}" for problem in error.errors()]
         sys.exit("Configuration error. Check your .env file:\n" + "\n".join(problems))
 
-    # 2. Then logging, then the pieces of the app
+    # 2. Logging, then the app itself
     setup_logging(settings.LOG_LEVEL)
-    llm = OpenAICompatibleLLM(settings)
-    service = AnswerService(llm, settings)
-    logger.info("%s is ready", settings.APP_NAME)
+    app = FastAPI(
+        title=settings.APP_NAME,
+        version=settings.APP_VERSION,
+        description="Answers clinic questions and books appointments at Nile Family Clinic.",
+        lifespan=lifespan,
+    )
+    app.state.settings = settings
 
-    # 3. A simple terminal chat. In Session 3, an API replaces this part.
-    print("Ask the clinic a question (press Enter on an empty line to quit).")
-    while True:
-        question = input("> ").strip()
-        if not question:
-            break
-        try:
-            print(service.answer(question))
-        except LLMError as error:
-            print(error)
+    # 3. One error shape for everything, then one router per feature
+    add_error_handlers(app)
+    app.include_router(health.router)
+    app.include_router(chat.router)
+    app.include_router(doctors.router)
+    app.include_router(appointments.router)
+    return app
 
 
-if __name__ == "__main__":
-    main()
+app = create_app()

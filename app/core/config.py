@@ -1,3 +1,4 @@
+# app/core/config.py
 from functools import lru_cache
 from pathlib import Path
 
@@ -20,6 +21,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "Clinic Booking Assistant"
+    APP_VERSION: str = "0.3.0"
     LOG_LEVEL: LogLevel = LogLevel.INFO
 
     # The LLM: no defaults, so the app refuses to start without them
@@ -28,8 +30,9 @@ class Settings(BaseSettings):
     LLM_MODEL: str
     LLM_TIMEOUT_SECONDS: float = Field(default=30, gt=0)
 
-    # The clinic's information: the file must exist
+    # The clinic's data files: they must exist
     CLINIC_INFO_PATH: FilePath = BASE_DIR / "data" / "clinic_info.md"
+    DOCTORS_PATH: FilePath = BASE_DIR / "data" / "doctors.json"
 
     # Warn in the log when one question sends more tokens than this
     PROMPT_TOKENS_WARNING: int = Field(default=3000, gt=0)

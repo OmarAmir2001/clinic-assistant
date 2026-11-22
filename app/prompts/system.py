@@ -1,3 +1,4 @@
+# app/prompts/system.py
 CLINIC_ASSISTANT = (
     "You are the assistant of Nile Family Clinic. "
     "Answer only from the clinic information below. "
