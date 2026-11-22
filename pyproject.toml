@@ -1,0 +1,14 @@
+[project]
+name = "clinic-assistant"
+version = "0.1.0"
+description = "Clinic Booking Assistant: answers clinic questions and books appointments"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.165.0",
+    "openai>=3.57.0",
+    "pydantic-settings>=2.16.3",
+]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
