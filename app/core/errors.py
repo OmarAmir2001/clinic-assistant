@@ -25,3 +25,21 @@ class UnavailableError(AppError):
     """An outside service we depend on is not answering."""
 
     code = "unavailable"
+
+
+class UnsupportedFileError(AppError):
+    """The file is not one of the types we accept, or its content doesn't match its name."""
+
+    code = "unsupported_file"
+
+
+class FileTooLargeError(AppError):
+    """The file is bigger than the upload limit."""
+
+    code = "file_too_large"
+
+
+class EmptyDocumentError(AppError):
+    """The file was accepted, but no text could be read from it."""
+
+    code = "empty_document"
