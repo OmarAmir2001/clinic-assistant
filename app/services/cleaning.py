@@ -5,6 +5,8 @@ import unicodedata
 
 # Characters you can't see that still change the text: zero-width spaces, direction marks, byte-order mark
 INVISIBLE = re.compile("[\u00ad\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")
+# Control characters (like the zero byte some PDF readers leave behind), except new line and tab
+CONTROL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 TATWEEL = "\u0640"  # the Arabic stretching line: كـــشف means the same as كشف
 ARABIC_WORD = re.compile(r"[\u0600-\u06ff]+")
 
@@ -13,7 +15,7 @@ def clean_text(text: str) -> str:
     # 1. One standard form for every character. Arabic "presentation forms" (ﻛﺸﻒ) become normal letters (كشف)
     text = unicodedata.normalize("NFKC", text)
     # 2. Remove what nobody can see, and the decorative tatweel
-    text = INVISIBLE.sub("", text).replace(TATWEEL, "")
+    text = CONTROL.sub("", INVISIBLE.sub("", text)).replace(TATWEEL, "")
     # 3. Tidy spaces and empty lines, but keep paragraph breaks: the chunker uses them
     text = text.replace("\r\n", "\n").replace("\t", " ").replace("\u00a0", " ")
     lines = [re.sub(r" {2,}", " ", line).strip() for line in text.split("\n")]

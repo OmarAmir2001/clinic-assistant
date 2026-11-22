@@ -49,7 +49,11 @@ def create_app() -> FastAPI:
         settings = get_settings()
     except ValidationError as error:
         # Show only the setting's name and the problem, never the values (they may be secrets)
-        problems = [f"  {problem['loc'][0]}: {problem['msg']}" for problem in error.errors()]
+        problems = []
+        for problem in error.errors():
+            # A rule about two settings together (like CHUNK_OVERLAP) has no single field name
+            name = problem["loc"][0] if problem["loc"] else "settings"
+            problems.append(f"  {name}: {problem['msg']}")
         sys.exit("Configuration error. Check your .env file:\n" + "\n".join(problems))
 
     # 2. Logging, then the app itself
