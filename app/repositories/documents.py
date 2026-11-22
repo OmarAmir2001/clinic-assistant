@@ -31,7 +31,7 @@ class Chunk:
 
 
 class InMemoryDocumentRepository:
-    """Keeps documents and chunks in dictionaries. A restart loses them all: Sessions 5-6 replace this."""
+    """Keeps documents and chunks in dictionaries. A restart loses them all: Session 6 moves them to PostgreSQL."""
 
     def __init__(self):
         self._documents: dict[str, Document] = {}

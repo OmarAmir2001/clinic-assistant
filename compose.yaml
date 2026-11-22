@@ -1,0 +1,43 @@
+# compose.yaml
+# One file that starts the clinic's database (and the API) the same way on every laptop.
+#   docker compose up -d db          only the database; run the API with `uv run fastapi dev`
+#   docker compose up -d --build     the database and the API, both in containers
+# Docker Compose reads .env for the ${...} values below, so each setting is written once.
+name: clinic-assistant
+
+services:
+  db:
+    image: pgvector/pgvector:pg17                  # PostgreSQL 17 with the pgvector extension
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-clinic}
+      POSTGRES_USER: ${POSTGRES_USER:-clinic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"    # only your own laptop can reach it
+    volumes:
+      - pgdata:/var/lib/postgresql/data            # the data lives in the volume, not the container
+    healthcheck:                                   # "healthy" = ready for connections
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db          # the service name above: Docker's network turns it into an address
+      POSTGRES_PORT: 5432        # the port inside that network, not the one on your laptop
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - uploads:/app/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy                 # wait until the healthcheck passes
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  uploads:

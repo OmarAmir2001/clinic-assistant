@@ -11,13 +11,14 @@ class Doctor:
     """One doctor and the appointment times they work each week."""
     id: int
     name: str
+    name_ar: str
     specialty: Specialty
     fee_egp: int
     schedule: dict[Weekday, list[str]]
 
 
 class DoctorRepository:
-    """Reads the clinic's doctors. For now from a JSON file; from Session 5, from PostgreSQL."""
+    """Reads the clinic's doctors from data/doctors.json. Session 6 reads them from PostgreSQL."""
 
     def __init__(self, path: Path):
         rows = json.loads(path.read_text(encoding="utf-8"))
@@ -25,6 +26,7 @@ class DoctorRepository:
             Doctor(
                 id=row["id"],
                 name=row["name"],
+                name_ar=row["name_ar"],
                 specialty=Specialty(row["specialty"]),
                 fee_egp=row["fee_egp"],
                 schedule={Weekday(day): times for day, times in row["schedule"].items()},

@@ -7,6 +7,7 @@ from app.core.enums import Specialty, Weekday
 class DoctorOut(BaseModel):
     id: int
     name: str
+    name_ar: str
     specialty: Specialty
     fee_egp: int
     days: list[Weekday]

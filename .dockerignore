@@ -1,0 +1,7 @@
+# Never copy these into the image
+.env
+.git
+.venv
+.ruff_cache
+__pycache__/
+data/uploads/

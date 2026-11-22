@@ -4,9 +4,14 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from app.core.config import Settings, get_settings
+from app.db.connection import Database
 from app.services.answer import AnswerService
 from app.services.booking import BookingService
 from app.services.ingestion import IngestionService
+
+
+def get_database(request: Request) -> Database:
+    return request.app.state.database
 
 
 def get_answer_service(request: Request) -> AnswerService:
@@ -23,6 +28,7 @@ def get_ingestion_service(request: Request) -> IngestionService:
 
 # Short names for "give me this object" in a route's parameters
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+DatabaseDep = Annotated[Database, Depends(get_database)]
 AnswerServiceDep = Annotated[AnswerService, Depends(get_answer_service)]
 BookingServiceDep = Annotated[BookingService, Depends(get_booking_service)]
 IngestionServiceDep = Annotated[IngestionService, Depends(get_ingestion_service)]
