@@ -19,24 +19,17 @@ Each session continues from the one before it.
 ```bash
 git clone <this repo>
 cd clinic-assistant
-git switch session-1
+git switch session-2
 ```
 
-## This branch: Session 1, Problem-First & Why Naive AI Fails
-
-Create a file named `.env` in this folder (it is ignored by git):
-
-```
-LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-LLM_API_KEY=paste-your-key-here
-LLM_MODEL=gemini-flash-latest
-```
-
-Then run the four attempts:
+## This branch: Session 2, Lightweight Design & Clean Architecture
 
 ```bash
-uv run ask.py
+cp .env.example .env      # then put your own key in .env
+uv run python -m app.main
 ```
+
+Ask: *Is Dr. Mona Adel available on Thursday, and how much is the visit?*
 
 You need Python 3.13 and [uv](https://docs.astral.sh/uv/). Never commit `.env`: it holds your API key.
 
