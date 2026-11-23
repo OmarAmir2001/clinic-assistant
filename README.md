@@ -26,22 +26,22 @@ git switch session-5
 
 ## This branch: Session 5, Data Modeling & Containers
 
-You also need [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
+You also need [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
 
 ```bash
 cp .env.example .env              # then put your key and a database password in .env
-docker compose up -d db           # PostgreSQL + pgvector, in a container
-uv run python -m app.db.setup     # tables, doctors and the next two weeks of slots
+docker compose up -d db           # start PostgreSQL in a container
+uv run python -m app.db.setup     # create the tables, add the doctors and their slots
 uv run fastapi dev
 ```
 
-Open http://127.0.0.1:8000/health/ready: it says `"database": "ok"`.
+The log says `Connected to the database at localhost:5432`.
 
 Or run the API in a container too:
 
 ```bash
 docker compose up -d --build
-docker compose exec api /app/.venv/bin/python -m app.db.setup
+docker compose exec api uv run python -m app.db.setup
 ```
 
 You need Python 3.13 and [uv](https://docs.astral.sh/uv/). Never commit `.env`: it holds your API key (and, from Session 5, your database password).
