@@ -9,46 +9,19 @@ from app.core.errors import UnavailableError
 
 logger = logging.getLogger(__name__)
 
-# The errors that mean "the database didn't answer": not running, wrong address,
-# still starting up, wrong password, or too slow
-CONNECTION_ERRORS = (OSError, TimeoutError, asyncpg.PostgresError)
+TRIES = 10  # the database may need a few seconds to start, so try more than once
 
 
-class Database:
-    """How the app reaches PostgreSQL. Session 6 adds a connection pool and SQLAlchemy here."""
-
-    def __init__(self, settings: Settings):
-        self.url = settings.database_url
-        self.place = settings.database_place
-        self.attempts = settings.DB_CONNECT_ATTEMPTS
-        self.delay = settings.DB_CONNECT_DELAY_SECONDS
-
-    async def ping(self) -> None:
-        """Open a connection, ask the smallest possible question, close it."""
+async def check_database(settings: Settings) -> None:
+    """Called once when the app starts: can we reach PostgreSQL?"""
+    where = f"{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}"  # never log the password
+    for attempt in range(1, TRIES + 1):
         try:
-            connection = await asyncpg.connect(self.url, timeout=3)
-            try:
-                await connection.fetchval("SELECT 1")
-            finally:
-                await connection.close()
-        except CONNECTION_ERRORS as error:
-            raise UnavailableError(f"The database at {self.place} is not answering.") from error
-
-    async def wait_until_ready(self) -> None:
-        """Called once at startup. The database may still be starting, so try a few times."""
-        for attempt in range(1, self.attempts + 1):
-            try:
-                await self.ping()
-                logger.info("Database %s is ready", self.place)
-                return
-            except UnavailableError as error:
-                # The cause's type name is enough to debug (ConnectionRefusedError,
-                # InvalidPasswordError ...) and never contains the password
-                reason = type(error.__cause__).__name__
-                logger.warning("Database not ready (try %d of %d): %s", attempt, self.attempts, reason)
-                if attempt < self.attempts:
-                    await asyncio.sleep(self.delay)
-        raise UnavailableError(
-            f"Gave up waiting for the database at {self.place}. "
-            "Is it running (docker compose up -d db), and are the POSTGRES_ settings in .env right?"
-        )
+            connection = await asyncpg.connect(settings.database_url, timeout=3)
+            await connection.close()
+            logger.info("Connected to the database at %s", where)
+            return
+        except (OSError, asyncpg.PostgresError) as error:
+            logger.warning("Database not ready (try %d of %d): %s", attempt, TRIES, type(error).__name__)
+            await asyncio.sleep(1)
+    raise UnavailableError(f"Can't reach the database at {where}. Is it running? Try: docker compose up -d db")

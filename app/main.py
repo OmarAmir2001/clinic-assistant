@@ -11,7 +11,7 @@ from app.api.limits import BodySizeLimit
 from app.api.routes import appointments, chat, doctors, documents, health
 from app.core.config import get_settings
 from app.core.logging import setup_logging
-from app.db.connection import Database
+from app.db.connection import check_database
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM
 from app.repositories.appointments import InMemoryAppointmentRepository
 from app.repositories.doctors import DoctorRepository
@@ -29,10 +29,8 @@ async def lifespan(app: FastAPI):
     """Runs once when the server starts (before `yield`) and once when it stops (after)."""
     settings = app.state.settings
 
-    # The database first: if it isn't there, stop now with a clear message,
-    # not later in the middle of a patient's request
-    app.state.database = Database(settings)
-    await app.state.database.wait_until_ready()
+    # Check the database first: if it's not there, stop now with a clear message
+    await check_database(settings)
 
     llm = OpenAICompatibleLLM(settings)
     app.state.answer_service = AnswerService(llm, settings)

@@ -1,43 +1,27 @@
-# compose.yaml
-# One file that starts the clinic's database (and the API) the same way on every laptop.
-#   docker compose up -d db          only the database; run the API with `uv run fastapi dev`
-#   docker compose up -d --build     the database and the API, both in containers
-# Docker Compose reads .env for the ${...} values below, so each setting is written once.
-name: clinic-assistant
-
+# compose.yaml: the whole setup in one file
+#   docker compose up -d db      start only the database
+#   docker compose up -d         start the database and the API
 services:
   db:
-    image: pgvector/pgvector:pg17                  # PostgreSQL 17 with the pgvector extension
+    image: pgvector/pgvector:pg17          # PostgreSQL 17 with pgvector inside
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-clinic}
-      POSTGRES_USER: ${POSTGRES_USER:-clinic}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: clinic
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # read from your .env
+      POSTGRES_DB: clinic
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"    # only your own laptop can reach it
+      - "5432:5432"                        # your laptop's port : the container's port
     volumes:
-      - pgdata:/var/lib/postgresql/data            # the data lives in the volume, not the container
-    healthcheck:                                   # "healthy" = ready for connections
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 2s
-      timeout: 3s
-      retries: 15
-    restart: unless-stopped
+      - pgdata:/var/lib/postgresql/data    # the data lives in the volume, not in the container
 
   api:
-    build: .
-    env_file: .env
+    build: .                               # build the image from our Dockerfile
+    env_file: .env                         # the same settings as on your laptop...
     environment:
-      POSTGRES_HOST: db          # the service name above: Docker's network turns it into an address
-      POSTGRES_PORT: 5432        # the port inside that network, not the one on your laptop
+      POSTGRES_HOST: db                    # ...except this: the database's name on Docker's network
     ports:
-      - "127.0.0.1:8000:8000"
-    volumes:
-      - uploads:/app/data/uploads
+      - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy                 # wait until the healthcheck passes
-    restart: unless-stopped
+      - db                                 # start db first
 
 volumes:
   pgdata:
-  uploads:
