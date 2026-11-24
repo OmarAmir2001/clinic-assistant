@@ -1,7 +1,6 @@
 # app/core/config.py
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import quote
 
 from pydantic import Field, FilePath, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -47,12 +46,8 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = Field(default=800, ge=200, le=4000)
     CHUNK_OVERLAP: int = Field(default=120, ge=0)
 
-    # PostgreSQL (Session 5). The password has no default: put it in .env
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str = "clinic"
-    POSTGRES_PASSWORD: SecretStr
-    POSTGRES_DB: str = "clinic"
+    # The database (Session 5). By default a SQLite file in data/; for PostgreSQL, set DATABASE_URL in .env
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{(BASE_DIR / 'data' / 'clinic.db').as_posix()}"
 
     @model_validator(mode="after")
     def check_overlap(self) -> "Settings":
@@ -64,12 +59,6 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.MAX_UPLOAD_MB * 1024 * 1024
-
-    @property
-    def database_url(self) -> str:
-        """The address asyncpg connects to: postgresql://user:password@host:port/database"""
-        password = quote(self.POSTGRES_PASSWORD.get_secret_value(), safe="")  # "p@ss" must not break the address
-        return f"postgresql://{self.POSTGRES_USER}:{password}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
 
 @lru_cache
