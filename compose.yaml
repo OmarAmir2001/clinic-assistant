@@ -16,8 +16,8 @@ services:
   api:
     build: .                               # build the image from our Dockerfile
     env_file: .env                         # the same settings as on your laptop...
-    environment:
-      POSTGRES_HOST: db                    # ...except this: the database's name on Docker's network
+    environment:                           # ...except the database's address: "db" is its name on Docker's network
+      DATABASE_URL: postgresql+asyncpg://clinic:${POSTGRES_PASSWORD}@db:5432/clinic
     ports:
       - "8000:8000"
     depends_on:

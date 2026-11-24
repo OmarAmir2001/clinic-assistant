@@ -6,62 +6,53 @@
 Safe to run again: it never adds the same row twice.
 """
 import asyncio
-from datetime import date, datetime, time, timedelta
-from pathlib import Path
-from zoneinfo import ZoneInfo
+from datetime import date, time, timedelta
 
-import asyncpg
+from sqlalchemy import func, select
 
 from app.core.config import get_settings
 from app.core.enums import Weekday
-from app.db.connection import check_database
+from app.db.database import check_database, make_engine, make_sessions
+from app.db.models import Base, Doctor, TimeSlot
 from app.repositories.doctors import DoctorRepository
 
-SCHEMA = Path(__file__).with_name("schema.sql")
-CAIRO = ZoneInfo("Africa/Cairo")
 DAYS_AHEAD = 14
-
-
-def next_days(count: int) -> list[date]:
-    today = datetime.now(CAIRO).date()
-    return [today + timedelta(days=n) for n in range(count)]
 
 
 async def main() -> None:
     settings = get_settings()
+    engine = make_engine(settings.DATABASE_URL)
+    await check_database(engine)
+
+    # 1. The tables: every class that inherits from Base becomes a table, if it isn't there yet
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
     doctors = DoctorRepository(settings.DOCTORS_PATH).list()
-
-    await check_database(settings)  # wait until PostgreSQL is up
-    connection = await asyncpg.connect(settings.database_url)
-    try:
-        # 1. The tables
-        await connection.execute(SCHEMA.read_text(encoding="utf-8"))
-
-        # 2. The doctors. $1, $2 ... are filled in by asyncpg, safely
+    async with make_sessions(engine)() as session:
+        # 2. The doctors: add the ones that aren't there yet
         for d in doctors:
-            await connection.execute(
-                "INSERT INTO doctors (id, name, name_ar, specialty, fee_egp) VALUES ($1, $2, $3, $4, $5) "
-                "ON CONFLICT (id) DO NOTHING",
-                d.id, d.name, d.name_ar, d.specialty.value, d.fee_egp,
-            )
+            if await session.get(Doctor, d.id) is None:
+                session.add(Doctor(id=d.id, name=d.name, name_ar=d.name_ar,
+                                   specialty=d.specialty.value, fee_egp=d.fee_egp))
 
-        # 3. One slot for every time each doctor works, on each of the next 14 days
-        for day in next_days(DAYS_AHEAD):
-            weekday = Weekday(day.strftime("%A").lower())   # 2026-11-29 -> "sunday"
+        # 3. The slots: one for every hour each doctor works, on each of the next 14 days
+        rows = await session.execute(select(TimeSlot.doctor_id, TimeSlot.day, TimeSlot.start_time))
+        existing = {tuple(row) for row in rows}
+        for offset in range(DAYS_AHEAD):
+            day = date.today() + timedelta(days=offset)
+            weekday = Weekday(day.strftime("%A").lower())  # 2026-11-29 -> "sunday"
             for d in doctors:
-                for hhmm in d.schedule.get(weekday, []):     # e.g. ["17:00", "18:00"]
-                    starts_at = datetime.combine(day, time.fromisoformat(hhmm), tzinfo=CAIRO)
-                    await connection.execute(
-                        "INSERT INTO time_slots (doctor_id, starts_at) VALUES ($1, $2) "
-                        "ON CONFLICT (doctor_id, starts_at) DO NOTHING",
-                        d.id, starts_at,
-                    )
+                for hhmm in d.schedule.get(weekday, []):  # e.g. ["17:00", "18:00"]
+                    start = time.fromisoformat(hhmm)
+                    if (d.id, day, start) not in existing:
+                        session.add(TimeSlot(doctor_id=d.id, day=day, start_time=start))
 
-        doctor_count = await connection.fetchval("SELECT count(*) FROM doctors")
-        slot_count = await connection.fetchval("SELECT count(*) FROM time_slots")
-    finally:
-        await connection.close()
+        await session.commit()  # save everything at once
 
+        doctor_count = await session.scalar(select(func.count()).select_from(Doctor))
+        slot_count = await session.scalar(select(func.count()).select_from(TimeSlot))
+    await engine.dispose()
     print(f"Database ready: {doctor_count} doctors, {slot_count} time slots.")
 
 

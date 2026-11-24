@@ -14,3 +14,6 @@ wheels/
 
 # Uploaded files (Session 4)
 data/uploads/
+
+# The SQLite database file (Session 5)
+data/*.db
