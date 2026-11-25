@@ -4,7 +4,6 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import AppointmentStatus
 from app.db.models import Appointment, TimeSlot
 
 
@@ -19,10 +18,7 @@ class SlotRepository:
         # LEFT OUTER JOIN keeps every slot; the ones with no booked appointment get NULLs, and we keep those.
         query = (
             select(TimeSlot)
-            .outerjoin(
-                Appointment,
-                (Appointment.slot_id == TimeSlot.id) & (Appointment.status == AppointmentStatus.BOOKED),
-            )
+            .outerjoin(Appointment, Appointment.slot_id == TimeSlot.id)
             .where(TimeSlot.doctor_id == doctor_id, TimeSlot.day == day, Appointment.id.is_(None))
             .order_by(TimeSlot.start_time)
         )
