@@ -1,5 +1,5 @@
 # labs/rush.py
-"""Ten patients press "book" on the same slot at the same moment.
+"""Twenty patients press "book" on the same slot at the same moment.
 
     uv run python -m labs.rush
 """
