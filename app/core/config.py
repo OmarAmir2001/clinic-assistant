@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "Clinic Booking Assistant"
-    APP_VERSION: str = "0.6.0"
+    APP_VERSION: str = "0.7.0"
     LOG_LEVEL: LogLevel = LogLevel.INFO
 
     # The LLM: no defaults, so the app refuses to start without them
@@ -46,8 +46,17 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = Field(default=800, ge=200, le=4000)
     CHUNK_OVERLAP: int = Field(default=120, ge=0)
 
-    # The database (Session 5). By default a SQLite file in data/; for PostgreSQL, set DATABASE_URL in .env
-    DATABASE_URL: str = f"sqlite+aiosqlite:///{(BASE_DIR / 'data' / 'clinic.db').as_posix()}"
+    # The database: PostgreSQL only from Session 7 (search needs pgvector and full-text search)
+    DATABASE_URL: str = Field(pattern=r"^postgresql\+asyncpg://")
+
+    # Search (Session 7): the two models, and how many results each step keeps
+    EMBEDDING_MODEL: str = "intfloat/multilingual-e5-small"
+    EMBEDDING_BATCH_SIZE: int = Field(default=32, gt=0)
+    RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
+    SEARCH_CANDIDATES: int = Field(default=10, ge=5, le=100)  # from each search, before fusion
+    RRF_K: int = Field(default=60, gt=0)  # Reciprocal Rank Fusion's constant
+    SEARCH_TOP_K: int = Field(default=5, ge=1, le=20)  # how many results /search returns at most
+    RERANK_THRESHOLD: float = Field(default=0.05, ge=0, le=1)  # measured with labs/threshold.py (Step 10)
 
     @model_validator(mode="after")
     def check_overlap(self) -> "Settings":

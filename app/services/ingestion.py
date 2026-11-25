@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.enums import DocumentType
 from app.core.errors import ConflictError, EmptyDocumentError, NotFoundError
 from app.db.models import Chunk, Document
+from app.providers.embeddings.base import EmbeddingProvider
 from app.repositories.documents import DocumentInfo, DocumentRepository
 from app.repositories.files import FileStore, StoredFile
 from app.services.chunking import chunk_text
@@ -38,9 +39,17 @@ class IngestionService:
     then one short transaction writes everything, and only after it commits do we delete old files.
     """
 
-    def __init__(self, files: FileStore, documents: DocumentRepository, session: AsyncSession, settings: Settings):
+    def __init__(
+        self,
+        files: FileStore,
+        documents: DocumentRepository,
+        embeddings: EmbeddingProvider,
+        session: AsyncSession,
+        settings: Settings,
+    ):
         self.files = files
         self.documents = documents
+        self.embeddings = embeddings
         self.session = session
         self.settings = settings
 
@@ -120,7 +129,7 @@ class IngestionService:
         return await self.documents.chunks(document_id)
 
     def _save_and_read(self, filename: str | None, content: BinaryIO) -> ReadFile:
-        """The slow part (Session 4's pipeline). It runs in a worker thread, outside any transaction."""
+        """The slow part: Session 4's pipeline, then the embeddings. Runs in a worker thread, no transaction."""
         # 1. Check the name: a clean name to show, and a type from the allowlist
         name = safe_display_name(filename)
         doc_type = detect_type(name)
@@ -145,6 +154,11 @@ class IngestionService:
                         {"position": len(chunks), "text": text, "page": block.page,
                          "section": block.section, "looks_broken": broken}
                     )
+
+            # 5. Embed all the chunks in one batch: each chunk goes into the database with its meaning
+            vectors = self.embeddings.embed_passages([c["text"] for c in chunks])
+            for chunk, vector in zip(chunks, vectors, strict=True):
+                chunk["embedding"] = vector
         except Exception:
             self.files.delete(stored.path)  # we keep nothing we rejected
             raise

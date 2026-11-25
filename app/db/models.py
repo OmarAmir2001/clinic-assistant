@@ -3,8 +3,15 @@
 import uuid
 from datetime import date, datetime, time
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, UniqueConstraint, func, text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import CheckConstraint, Computed, DateTime, ForeignKey, Index, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+# The embedding model's vector size. It must match the model in settings: the app checks at startup.
+EMBEDDING_DIM = 384
+# Words for keyword search, from English and Arabic: each language drops its own stop words and stems its own words
+WORDS = "to_tsvector('english', text) || to_tsvector('arabic', text)"
 
 
 class Base(DeclarativeBase):
@@ -28,6 +35,13 @@ class Document(Base):
 
 class Chunk(Base):
     __tablename__ = "chunks"
+    __table_args__ = (
+        # HNSW: a graph index that finds the nearest vectors without comparing against every row
+        Index("chunks_embedding_hnsw", "embedding", postgresql_using="hnsw",
+              postgresql_ops={"embedding": "vector_cosine_ops"}),
+        # GIN: an inverted index, word -> the chunks that contain it
+        Index("chunks_words_gin", "words", postgresql_using="gin"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)  # the database numbers them: 1, 2, 3 ...
     document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
@@ -36,6 +50,12 @@ class Chunk(Base):
     page: Mapped[int | None]  # "| None": this column may be empty
     section: Mapped[str | None]
     looks_broken: Mapped[bool] = mapped_column(default=False)  # broken Arabic from a bad PDF (Session 6)
+    # Its meaning, as 384 numbers (Session 7). deferred: not loaded unless we ask for it
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), deferred=True)
+    # Its words, for keyword search. PostgreSQL computes it from `text` on every insert or update
+    words: Mapped[str] = mapped_column(TSVECTOR, Computed(WORDS, persisted=True), deferred=True)
+
+    document: Mapped[Document] = relationship()  # chunk.document: which file it came from (Session 7)
 
 
 # ===== Booking: doctors, their time slots, and appointments =====
