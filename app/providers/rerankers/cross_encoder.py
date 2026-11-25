@@ -11,7 +11,8 @@ class CrossEncoderReranker:
     """A cross-encoder reads the question and one passage together, word against word.
 
     Slower than comparing two vectors, so we only use it on the few candidates search already found.
-    The mMARCO model was trained on questions and passages in 14 languages, Arabic among them.
+    Our default, bge-reranker-v2-m3, is multilingual and reads Arabic well; the smaller
+    mmarco-mMiniLMv2 is 10 times faster but weaker in Arabic (measured in labs/search_eval.py).
     """
 
     def __init__(self, model_name: str):

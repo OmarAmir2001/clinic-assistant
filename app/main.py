@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     app.state.files = FileStore(settings.UPLOAD_DIR, settings.max_upload_bytes)
 
     # The two search models (Session 7): loaded once, shared by every request.
-    # The first start downloads them (about 600 MB); after that they load from the cache in seconds.
+    # The first start downloads them (about 2.7 GB); after that they load from the cache in seconds.
     app.state.embeddings = E5Embeddings(settings.EMBEDDING_MODEL, settings.EMBEDDING_BATCH_SIZE)
     if app.state.embeddings.dimension != EMBEDDING_DIM:
         raise RuntimeError(
