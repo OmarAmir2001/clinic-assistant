@@ -4,17 +4,18 @@
     uv run python -m labs.retry
 """
 import asyncio
-from pathlib import Path
 
 import httpx
 
 from labs.helpers import API, booking, free_slots, new_key
 
-FILE = Path("data/clinic_docs/prep_guidelines.md")
+NAME = "visiting_hours.md"
 
 
 async def main() -> None:
-    async with httpx.AsyncClient(base_url=API, timeout=30) as client:
+    # A fresh connection for every request: a server error can't break the next request
+    fresh = httpx.Limits(max_keepalive_connections=0)
+    async with httpx.AsyncClient(base_url=API, timeout=30, limits=fresh) as client:
         first, second = await free_slots(client, count=2)
 
         # 1. The app didn't hear back, so it sends the same booking again, with the same key
@@ -33,13 +34,15 @@ async def main() -> None:
         for r in replies:
             print(f"   {r.status_code} {r.json().get('reference') or r.json()['error']['message']}")
 
-        # 3. The same file uploaded twice
-        print(f"3. The same file uploaded twice ({FILE.name})")
+        # 3. The same file uploaded twice (new text each run, so the first upload is really new)
+        print(f"3. The same file uploaded twice ({NAME})")
+        text = f"# Visiting hours\n\nVisitors are welcome from 10:00 to 20:00. ({new_key()})\n".encode()
         for attempt in (1, 2):
-            r = await client.post("/documents", files={"file": (FILE.name, FILE.read_bytes())})
+            r = await client.post("/documents", files={"file": (NAME, text)})
             print(f"   attempt {attempt}: {r.status_code} {r.json().get('id') or r.json()['error']['message']}")
         listing = (await client.get("/documents")).json()
-        print(f"   documents named {FILE.name}: {sum(d['name'] == FILE.name for d in listing)}")
+        copies = sum(d["name"] == NAME and d["size_bytes"] == len(text) for d in listing)
+        print(f"   documents with this text: {copies}")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ import httpx
 
 from labs.helpers import API, booking, free_slots, new_key
 
-PATIENTS = 10
+PATIENTS = 20
 
 
 async def book(client: httpx.AsyncClient, slot_id: int, n: int) -> int:
@@ -19,8 +19,10 @@ async def book(client: httpx.AsyncClient, slot_id: int, n: int) -> int:
 
 
 async def main() -> None:
-    async with httpx.AsyncClient(base_url=API, timeout=30) as client:
+    async with httpx.AsyncClient(base_url=API, timeout=30, limits=httpx.Limits(max_connections=PATIENTS)) as client:
         [slot] = await free_slots(client)
+        # Open all the connections first, so the bookings really leave at the same moment
+        await asyncio.gather(*(client.get("/health") for _ in range(PATIENTS)))
         print(f"Slot {slot['slot_id']} ({slot['day']} {slot['time']}): {PATIENTS} bookings at the same moment")
         codes = await asyncio.gather(*(book(client, slot["slot_id"], n) for n in range(PATIENTS)))
     for code, count in sorted(Counter(codes).items()):
