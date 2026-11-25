@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     SEARCH_CANDIDATES: int = Field(default=10, ge=5, le=100)  # from each search, before fusion
     RRF_K: int = Field(default=60, gt=0)  # Reciprocal Rank Fusion's constant
     SEARCH_TOP_K: int = Field(default=5, ge=1, le=20)  # how many results /search returns at most
-    RERANK_THRESHOLD: float = Field(default=0.05, ge=0, le=1)  # measured with labs/threshold.py (Step 10)
+    RERANK_THRESHOLD: float = Field(default=0.05, ge=0, le=1)  # measured with labs/threshold.py
 
     @model_validator(mode="after")
     def check_overlap(self) -> "Settings":
