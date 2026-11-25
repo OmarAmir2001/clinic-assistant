@@ -8,11 +8,14 @@ from pydantic import ValidationError
 
 from app.api.errors import add_error_handlers
 from app.api.limits import BodySizeLimit
-from app.api.routes import appointments, chat, doctors, documents, health
+from app.api.routes import appointments, chat, doctors, documents, health, search
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.database import check_database, make_engine, make_sessions
+from app.db.models import EMBEDDING_DIM
+from app.providers.embeddings.e5 import E5Embeddings
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM
+from app.providers.rerankers.cross_encoder import CrossEncoderReranker
 from app.repositories.files import FileStore
 from app.services.answer import AnswerService
 
@@ -31,6 +34,17 @@ async def lifespan(app: FastAPI):
     # A session factory: each request gets its own session (app/api/dependencies.py)
     app.state.sessions = make_sessions(app.state.engine)
     app.state.files = FileStore(settings.UPLOAD_DIR, settings.max_upload_bytes)
+
+    # The two search models (Session 7): loaded once, shared by every request.
+    # The first start downloads them (about 2.7 GB); after that they load from the cache in seconds.
+    app.state.embeddings = E5Embeddings(settings.EMBEDDING_MODEL, settings.EMBEDDING_BATCH_SIZE)
+    if app.state.embeddings.dimension != EMBEDDING_DIM:
+        raise RuntimeError(
+            f"{settings.EMBEDDING_MODEL} makes {app.state.embeddings.dimension}-number vectors, "
+            f"but the chunks table stores {EMBEDDING_DIM}. "
+            "Change EMBEDDING_DIM in app/db/models.py and reset the database."
+        )
+    app.state.reranker = CrossEncoderReranker(settings.RERANKER_MODEL)
 
     llm = OpenAICompatibleLLM(settings)
     app.state.answer_service = AnswerService(llm, settings)
@@ -73,6 +87,7 @@ def create_app() -> FastAPI:
     app.include_router(doctors.router)
     app.include_router(appointments.router)
     app.include_router(documents.router)
+    app.include_router(search.router)
     return app
 
 

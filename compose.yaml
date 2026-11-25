@@ -22,6 +22,9 @@ services:
       - "8000:8000"
     depends_on:
       - db                                 # start db first
+    volumes:
+      - models:/root/.cache/huggingface    # the search models, downloaded once and kept (Session 7)
 
 volumes:
   pgdata:
+  models:

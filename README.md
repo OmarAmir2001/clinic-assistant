@@ -16,34 +16,42 @@ Each session continues from the one before it.
 | `session-4` | Session 4: Secure Document Ingestion & Chunking |
 | `session-5` | Session 5: Data Modeling & Containers |
 | `session-6` | Session 6: Reliable Pipelines & Safe Booking (Checkpoint 1) |
+| `session-7` | Session 7: Hybrid Search & Reranking |
 
 `main` always holds the latest session.
 
 ```bash
 git clone <this repo>
 cd clinic-assistant
-git switch session-6
+git switch session-7
 ```
 
-## This branch: Session 6, Reliable Pipelines & Safe Booking (Checkpoint 1)
+## This branch: Session 7, Hybrid Search & Reranking
 
-You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) running, and `DATABASE_URL` in `.env`
-pointing at PostgreSQL (see `.env.example`). Coming from Session 5? The tables changed, so start fresh once:
+You need Docker Desktop running and `DATABASE_URL` in `.env` (PostgreSQL is required from this session).
+Download the two search models once, before class (about 2.7 GB):
 
 ```bash
-docker compose down -v            # delete the old database (development only!)
+uv sync
+uv run python -m labs.download_models
+```
+
+The chunks table changed (embeddings and keyword search), so start fresh once, then upload the clinic's documents:
+
+```bash
+docker compose down -v
 docker compose up -d db
-uv run python -m app.db.setup     # the new tables, the doctors and two weeks of slots
+uv run python -m app.db.setup
 uv run fastapi dev
+uv run python -m labs.upload_docs     # in a second terminal: the 7 files in data/clinic_docs/
 ```
 
-Then, in a second terminal, break it on purpose:
+Measure, then ask:
 
 ```bash
-uv run python -m labs.rush        # 20 patients book the same slot at the same moment
-uv run python -m labs.retry       # the same request arrives twice
-uv run python -m labs.crash       # a two-step change fails in the middle
-uv run python -m labs.check_all   # every promise the API makes (Checkpoint 1)
+uv run python -m labs.search_eval     # hit@1, hit@5 and MRR for every search method
+uv run python -m labs.threshold       # where to cut off "not relevant"
+uv run python -m labs.ask "Do you take Allianz cards?"
 ```
 
 You need Python 3.13 and [uv](https://docs.astral.sh/uv/). Never commit `.env`: it holds your API key (and, from Session 5, your database password).

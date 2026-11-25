@@ -9,10 +9,22 @@ dependencies = [
     "asyncpg>=0.32",
     "fastapi[standard]>=0.165.0",
     "openai>=3.57.0",
+    "pgvector>=0.4",
     "pydantic-settings>=2.16.3",
     "pymupdf>=2.1",
+    "sentence-transformers>=5",
     "sqlalchemy[asyncio]>=2.1",
+    "torch>=2.15.0",
 ]
 
 [tool.fastapi]
 entrypoint = "app.main:app"
+
+# torch from the CPU-only index: the same small download on Windows, macOS and Linux (no 2 GB of CUDA)
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

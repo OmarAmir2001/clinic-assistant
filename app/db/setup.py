@@ -10,7 +10,7 @@ import json
 from datetime import date, time, timedelta
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.core.config import get_settings
 from app.core.enums import Weekday
@@ -32,6 +32,7 @@ async def main() -> None:
 
     # 1. The tables: every class that inherits from Base becomes a table, if it isn't there yet
     async with engine.begin() as connection:
+        await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))  # pgvector (Session 7)
         await connection.run_sync(Base.metadata.create_all)
 
     doctors = read_doctors_file(settings.DOCTORS_PATH)
