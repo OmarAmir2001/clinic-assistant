@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime, time
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, UniqueConstraint, func, text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -20,6 +20,8 @@ class Document(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     name: Mapped[str]
     type: Mapped[str]
+    stored_as: Mapped[str]  # our random file name on disk (Session 6)
+    size_bytes: Mapped[int]  # (Session 6)
     sha256: Mapped[str] = mapped_column(unique=True)  # the same file can't be stored twice
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -33,6 +35,7 @@ class Chunk(Base):
     text: Mapped[str]
     page: Mapped[int | None]  # "| None": this column may be empty
     section: Mapped[str | None]
+    looks_broken: Mapped[bool] = mapped_column(default=False)  # broken Arabic from a bad PDF (Session 6)
 
 
 # ===== Booking: doctors, their time slots, and appointments =====
@@ -59,6 +62,8 @@ class TimeSlot(Base):
     day: Mapped[date]
     start_time: Mapped[time]
 
+    doctor: Mapped[Doctor] = relationship()  # slot.doctor: the Doctor row this slot points at (Session 6)
+
 
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -75,6 +80,9 @@ class Appointment(Base):
     patient_name: Mapped[str]
     phone: Mapped[str]
     status: Mapped[str] = mapped_column(default="booked")
+    idempotency_key: Mapped[str | None] = mapped_column(unique=True)  # one booking per request key (Session 6)
+
+    slot: Mapped[TimeSlot] = relationship()  # appointment.slot, then appointment.slot.doctor (Session 6)
 
 
 # ===== Chat: conversations and their messages =====

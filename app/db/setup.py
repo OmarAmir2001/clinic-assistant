@@ -6,7 +6,9 @@
 Safe to run again: it never adds the same row twice.
 """
 import asyncio
+import json
 from datetime import date, time, timedelta
+from pathlib import Path
 
 from sqlalchemy import func, select
 
@@ -14,9 +16,13 @@ from app.core.config import get_settings
 from app.core.enums import Weekday
 from app.db.database import check_database, make_engine, make_sessions
 from app.db.models import Base, Doctor, TimeSlot
-from app.repositories.doctors import DoctorRepository
 
 DAYS_AHEAD = 14
+
+
+def read_doctors_file(path: Path) -> list[dict]:
+    """The clinic's doctors and their weekly hours, from data/doctors.json."""
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 async def main() -> None:
@@ -28,13 +34,13 @@ async def main() -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
 
-    doctors = DoctorRepository(settings.DOCTORS_PATH).list()
+    doctors = read_doctors_file(settings.DOCTORS_PATH)
     async with make_sessions(engine)() as session:
         # 2. The doctors: add the ones that aren't there yet
         for d in doctors:
-            if await session.get(Doctor, d.id) is None:
-                session.add(Doctor(id=d.id, name=d.name, name_ar=d.name_ar,
-                                   specialty=d.specialty.value, fee_egp=d.fee_egp))
+            if await session.get(Doctor, d["id"]) is None:
+                session.add(Doctor(id=d["id"], name=d["name"], name_ar=d["name_ar"],
+                                   specialty=d["specialty"], fee_egp=d["fee_egp"]))
 
         # 3. The slots: one for every hour each doctor works, on each of the next 14 days
         rows = await session.execute(select(TimeSlot.doctor_id, TimeSlot.day, TimeSlot.start_time))
@@ -43,10 +49,10 @@ async def main() -> None:
             day = date.today() + timedelta(days=offset)
             weekday = Weekday(day.strftime("%A").lower())  # 2026-11-29 -> "sunday"
             for d in doctors:
-                for hhmm in d.schedule.get(weekday, []):  # e.g. ["17:00", "18:00"]
+                for hhmm in d["schedule"].get(weekday, []):  # e.g. ["17:00", "18:00"]
                     start = time.fromisoformat(hhmm)
-                    if (d.id, day, start) not in existing:
-                        session.add(TimeSlot(doctor_id=d.id, day=day, start_time=start))
+                    if (d["id"], day, start) not in existing:
+                        session.add(TimeSlot(doctor_id=d["id"], day=day, start_time=start))
 
         await session.commit()  # save everything at once
 
