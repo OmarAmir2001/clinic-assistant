@@ -14,10 +14,11 @@ from app.db.models import Appointment
 
 PATIENT = {"patient_name": "Test Patient", "phone": "01000000000"}
 ATTEMPTS = [
-    ("1. A normal booking for slot 1", {"reference": "NFC-TEST01", "slot_id": 1}),
-    ("2. Someone else books slot 1", {"reference": "NFC-TEST02", "slot_id": 1}),
-    ("3. A booking for slot 999999", {"reference": "NFC-TEST03", "slot_id": 999999}),
-    ("4. A status of 'maybe'", {"reference": "NFC-TEST04", "slot_id": 2, "status": "maybe"}),
+    ("1. A normal booking for slot 1", {"reference": "NFC-TEST01", "slot_id": 1, "idempotency_key": "test-key-1"}),
+    ("2. Someone else books slot 1", {"reference": "NFC-TEST02", "slot_id": 1, "idempotency_key": "test-key-2"}),
+    ("3. A booking for slot 999999", {"reference": "NFC-TEST03", "slot_id": 999999, "idempotency_key": "test-key-3"}),
+    ("4. A status of 'maybe'",
+     {"reference": "NFC-TEST04", "slot_id": 2, "status": "maybe", "idempotency_key": "test-key-4"}),
 ]
 
 
@@ -47,7 +48,7 @@ async def main() -> None:
     async with sessions() as session:  # 5. Cancel booking 1: now slot 1 can be booked again
         first = update(Appointment).where(Appointment.reference == "NFC-TEST01")
         await session.execute(first.values(status="cancelled"))
-        session.add(Appointment(reference="NFC-TEST05", slot_id=1, **PATIENT))
+        session.add(Appointment(reference="NFC-TEST05", slot_id=1, idempotency_key="test-key-5", **PATIENT))
         await session.commit()
         print(f"{'5. Cancel 1, then book slot 1':<32} accepted")
     await engine.dispose()

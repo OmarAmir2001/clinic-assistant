@@ -11,15 +11,10 @@ from app.api.limits import BodySizeLimit
 from app.api.routes import appointments, chat, doctors, documents, health
 from app.core.config import get_settings
 from app.core.logging import setup_logging
-from app.db.database import check_database, make_engine
+from app.db.database import check_database, make_engine, make_sessions
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM
-from app.repositories.appointments import InMemoryAppointmentRepository
-from app.repositories.doctors import DoctorRepository
-from app.repositories.documents import InMemoryDocumentRepository
 from app.repositories.files import FileStore
 from app.services.answer import AnswerService
-from app.services.booking import BookingService
-from app.services.ingestion import IngestionService
 
 logger = logging.getLogger("app.main")
 
@@ -33,17 +28,12 @@ async def lifespan(app: FastAPI):
     app.state.engine = make_engine(settings.DATABASE_URL)
     await check_database(app.state.engine)
 
+    # A session factory: each request gets its own session (app/api/dependencies.py)
+    app.state.sessions = make_sessions(app.state.engine)
+    app.state.files = FileStore(settings.UPLOAD_DIR, settings.max_upload_bytes)
+
     llm = OpenAICompatibleLLM(settings)
     app.state.answer_service = AnswerService(llm, settings)
-    app.state.booking_service = BookingService(
-        DoctorRepository(settings.DOCTORS_PATH),
-        InMemoryAppointmentRepository(),
-    )
-    app.state.ingestion_service = IngestionService(
-        FileStore(settings.UPLOAD_DIR, settings.max_upload_bytes),
-        InMemoryDocumentRepository(),
-        settings,
-    )
     logger.info("%s is ready", settings.APP_NAME)
     yield
     logger.info("%s is shutting down", settings.APP_NAME)

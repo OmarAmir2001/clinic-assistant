@@ -15,39 +15,35 @@ Each session continues from the one before it.
 | `session-3` | Session 3: API Contracts & Validation |
 | `session-4` | Session 4: Secure Document Ingestion & Chunking |
 | `session-5` | Session 5: Data Modeling & Containers |
+| `session-6` | Session 6: Reliable Pipelines & Safe Booking (Checkpoint 1) |
 
 `main` always holds the latest session.
 
 ```bash
 git clone <this repo>
 cd clinic-assistant
-git switch session-5
+git switch session-6
 ```
 
-## This branch: Session 5, Data Modeling & Containers
+## This branch: Session 6, Reliable Pipelines & Safe Booking (Checkpoint 1)
 
-**SQLite** (nothing to install; the database is the file `data/clinic.db`)
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) running, and `DATABASE_URL` in `.env`
+pointing at PostgreSQL (see `.env.example`). Coming from Session 5? The tables changed, so start fresh once:
 
 ```bash
-cp .env.example .env              # then put your own key in .env
-uv run python -m app.db.setup     # create the tables, add the doctors and their slots
-uv run python -m app.db.break_it  # try to save bad bookings
+docker compose down -v            # delete the old database (development only!)
+docker compose up -d db
+uv run python -m app.db.setup     # the new tables, the doctors and two weeks of slots
 uv run fastapi dev
 ```
 
-**PostgreSQL in Docker.** You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
-In `.env`, choose `POSTGRES_PASSWORD` and remove the `#` before `DATABASE_URL` (same password). Then:
+Then, in a second terminal, break it on purpose:
 
 ```bash
-docker compose up -d db           # start PostgreSQL in a container
-uv run python -m app.db.setup     # the same code creates the same tables in PostgreSQL
-uv run fastapi dev
-```
-
-Or run the API in a container too:
-
-```bash
-docker compose up -d --build
+uv run python -m labs.rush        # 20 patients book the same slot at the same moment
+uv run python -m labs.retry       # the same request arrives twice
+uv run python -m labs.crash       # a two-step change fails in the middle
+uv run python -m labs.check_all   # every promise the API makes (Checkpoint 1)
 ```
 
 You need Python 3.13 and [uv](https://docs.astral.sh/uv/). Never commit `.env`: it holds your API key (and, from Session 5, your database password).

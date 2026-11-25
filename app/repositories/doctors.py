@@ -1,46 +1,35 @@
 # app/repositories/doctors.py
-import json
-from dataclasses import dataclass
-from pathlib import Path
+from datetime import date
 
-from app.core.enums import Specialty, Weekday
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-
-@dataclass(frozen=True)
-class Doctor:
-    """One doctor and the appointment times they work each week."""
-    id: int
-    name: str
-    name_ar: str
-    specialty: Specialty
-    fee_egp: int
-    schedule: dict[Weekday, list[str]]
+from app.core.enums import AppointmentStatus, Specialty
+from app.db.models import Appointment, Doctor, TimeSlot
 
 
 class DoctorRepository:
-    """Reads the clinic's doctors from data/doctors.json. Session 6 reads them from PostgreSQL."""
+    """Every database question about doctors. Nobody else writes SQL about them."""
 
-    def __init__(self, path: Path):
-        rows = json.loads(path.read_text(encoding="utf-8"))
-        self._doctors = [
-            Doctor(
-                id=row["id"],
-                name=row["name"],
-                name_ar=row["name_ar"],
-                specialty=Specialty(row["specialty"]),
-                fee_egp=row["fee_egp"],
-                schedule={Weekday(day): times for day, times in row["schedule"].items()},
-            )
-            for row in rows
-        ]
+    def __init__(self, session: AsyncSession):
+        self.session = session
 
-    def list(self, specialty: Specialty | None = None, day: Weekday | None = None) -> list[Doctor]:
-        doctors = self._doctors
+    async def list(self, specialty: Specialty | None = None, free_on: date | None = None) -> list[Doctor]:
+        query = select(Doctor).order_by(Doctor.id)
         if specialty is not None:
-            doctors = [d for d in doctors if d.specialty == specialty]
-        if day is not None:
-            doctors = [d for d in doctors if day in d.schedule]
-        return doctors
+            query = query.where(Doctor.specialty == specialty)
+        if free_on is not None:
+            # Only doctors with at least one free slot that day (a JOIN, then the free-slot rule)
+            query = (
+                query.join(TimeSlot, TimeSlot.doctor_id == Doctor.id)
+                .outerjoin(
+                    Appointment,
+                    (Appointment.slot_id == TimeSlot.id) & (Appointment.status == AppointmentStatus.BOOKED),
+                )
+                .where(TimeSlot.day == free_on, Appointment.id.is_(None))
+                .distinct()
+            )
+        return list(await self.session.scalars(query))
 
-    def get(self, doctor_id: int) -> Doctor | None:
-        return next((d for d in self._doctors if d.id == doctor_id), None)
+    async def get(self, doctor_id: int) -> Doctor | None:
+        return await self.session.get(Doctor, doctor_id)

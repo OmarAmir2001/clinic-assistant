@@ -41,3 +41,9 @@ class DocumentType(StrEnum):
     PDF = "pdf"
     TXT = "txt"
     MD = "md"
+
+
+class AppointmentStatus(StrEnum):
+    """Where a booking stands. A cancelled booking stays in the table, so its history is kept."""
+    BOOKED = "booked"
+    CANCELLED = "cancelled"
