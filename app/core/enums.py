@@ -64,3 +64,14 @@ class ChangeAction(StrEnum):
     """What cancel_or_reschedule should do with an appointment."""
     CANCEL = "cancel"
     RESCHEDULE = "reschedule"
+
+
+class EventKind(StrEnum):
+    """What the agent tells the patient while it works (Session 10). Each one is an SSE event name."""
+    STATUS = "status"  # what it is doing now: "Looking up free times..."
+    TOKEN = "token"  # a piece of the answer, as the model writes it
+    SOURCES = "sources"  # the clinic documents it read
+    CONFIRM = "confirm"  # a change waiting for the patient's yes, with its details
+    CHANGED = "changed"  # a change that was made: booked, cancelled, moved
+    DONE = "done"  # the whole reply: the last event
+    ERROR = "error"  # something went wrong: the last event

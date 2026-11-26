@@ -1,5 +1,7 @@
 # app/providers/llm/openai_compatible.py
 import logging
+import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 from openai import OpenAI, OpenAIError
@@ -58,6 +60,41 @@ class OpenAICompatibleLLM:
         message = response.choices[0].message
         calls = [ToolCall(c.id, c.function.name, c.function.arguments) for c in message.tool_calls or []]
         return self._reply(response, message.content or "", calls)
+
+    def stream(self, messages: list[dict], tools: list[dict] | None = None) -> Iterator[str | LLMReply]:
+        """Like chat(), but the text comes piece by piece as the model writes it (Session 10).
+
+        Yields each piece of text (a str), then, last, the whole LLMReply: the full text, the tools it asks for,
+        and the tokens."""
+        extra = {"tools": tools} if tools else {}
+        text, parts, usage = "", {}, None
+        try:
+            chunks = self.client.chat.completions.create(
+                model=self.model, messages=messages, temperature=self.temperature,
+                stream=True, stream_options={"include_usage": True}, **extra,
+            )
+            for chunk in chunks:
+                usage = chunk.usage or usage  # the token counts come in the last chunk
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    text += delta.content
+                    yield delta.content
+                for piece in delta.tool_calls or []:  # a tool call can arrive in pieces; index says whose piece
+                    part = parts.setdefault(piece.index, {"id": "", "name": "", "arguments": ""})
+                    part["id"] = part["id"] or piece.id or ""
+                    if piece.function:
+                        part["name"] = part["name"] or piece.function.name or ""
+                        part["arguments"] += piece.function.arguments or ""
+        except OpenAIError as error:
+            logger.error("LLM call failed: %s", error)
+            raise LLMError("The assistant is not available right now. Please try again later.") from error
+        calls = [ToolCall(p["id"] or f"call_{uuid.uuid4().hex[:8]}", p["name"], p["arguments"]) for p in parts.values()]
+        reply = LLMReply(text=text, tokens_in=usage.prompt_tokens if usage else 0,
+                         tokens_out=usage.completion_tokens if usage else 0, tool_calls=calls)
+        logger.info("LLM call done: %d tokens in, %d tokens out", reply.tokens_in, reply.tokens_out)
+        yield reply
 
     def fill_form(self, messages: list[dict], form: type[BaseModel]) -> tuple[BaseModel, LLMReply]:
         """Ask the model to fill in a form (a Pydantic model) instead of writing free text."""

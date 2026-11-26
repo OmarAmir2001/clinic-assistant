@@ -19,43 +19,40 @@ Each session continues from the one before it.
 | `session-7` | Session 7: Hybrid Search & Reranking |
 | `session-8` | Session 8: Grounded Answers & Structured Outputs |
 | `session-9` | Session 9: Building the Clinic Agent |
+| `session-10` | Session 10: Streaming UI & Build-It Capstone (Capstone 1) |
 
 `main` always holds the latest session.
 
 ```bash
 git clone <this repo>
 cd clinic-assistant
-git switch session-9
+git switch session-10
 ```
 
-## This branch: Session 9, Building the Clinic Agent
+## This branch: Session 10, Streaming UI & Build-It Capstone
 
-`POST /chat` is an agent. The model picks one of six tools (search the documents, list the doctors, check the free
-times, book, look up, cancel or move); our code checks the arguments, runs the tool and sends the result back, in a
-loop with limits. The conversation is saved in PostgreSQL, so "book the second one" works. A booking, cancelling or
-moving never runs when the model asks: the patient sees the details (read from the database) and must reply "yes".
+`POST /chat/stream` is the same agent as `POST /chat`, but as Server-Sent Events: the patient sees what it is doing
+("Looking up free times…"), then the answer as the model writes it. `ui/app.py` is a chat page in Streamlit: step
+progress, the sources it read, a confirmation card with Yes / No buttons, document upload for staff, and clear
+messages when the server or the model is down. `labs/trace.py` reads a conversation back from the database, tool call
+by tool call: that is how we find where an answer went wrong.
 
-The `messages` and `conversations` tables changed, so start the database fresh, then upload the documents again:
+No database change since Session 9. In two terminals:
 
 ```bash
-docker compose down -v
-docker compose up -d db
-uv run python -m app.db.setup
-uv run fastapi dev
-uv run python -m labs.upload_docs
+uv run fastapi dev                            # the API
+uv run python -m streamlit run ui/app.py      # the chat page: http://localhost:8501
 ```
 
-Then talk to the agent:
+And from the terminal:
 
 ```bash
-uv run python -m labs.first_call "Which dermatologist is free on Sunday?"   # what the model asks for (nothing runs)
-uv run python -m labs.chat                                                 # a conversation; an empty line ends it
-uv run python -m labs.booking_flow                                         # policy, schedule, confirm, book: 7 checks
-uv run python -m labs.stubborn_llm   # a pretend model that never stops asking for tools (set LLM_BASE_URL to try it)
+uv run python -m labs.stream "Which dermatologist is free on Sunday?"   # every event, with the second it came
+uv run python -m labs.trace                                            # the newest conversation, step by step
+uv run python -m labs.booking_flow                                     # Session 9's 7 checks, still passing
 ```
 
-The agent's rules live in `app/prompts/agent/<version>/`; its limits (`AGENT_MAX_STEPS`, `AGENT_TOKEN_BUDGET`,
-`AGENT_HISTORY_MESSAGES`) in `.env`. `POST /answer` from Session 8 is still there.
+Capstone 1 (what each pair presents) is in [`docs/capstone-1.md`](docs/capstone-1.md).
 
 You need Python 3.13 and [uv](https://docs.astral.sh/uv/). Never commit `.env`: it holds your API key (and, from Session 5, your database password).
 
