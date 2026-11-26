@@ -18,33 +18,43 @@ Each session continues from the one before it.
 | `session-6` | Session 6: Reliable Pipelines & Safe Booking (Checkpoint 1) |
 | `session-7` | Session 7: Hybrid Search & Reranking |
 | `session-8` | Session 8: Grounded Answers & Structured Outputs |
+| `session-9` | Session 9: Building the Clinic Agent |
 
 `main` always holds the latest session.
 
 ```bash
 git clone <this repo>
 cd clinic-assistant
-git switch session-8
+git switch session-9
 ```
 
-## This branch: Session 8, Grounded Answers & Structured Outputs
+## This branch: Session 9, Building the Clinic Agent
 
-`POST /answer` searches the clinic's documents first, gives the model only what it found, and returns the answer
-with its sources, or an honest "I don't know". Session 2's `/chat` is gone: Session 9 brings chat back as an agent.
+`POST /chat` is an agent. The model picks one of six tools (search the documents, list the doctors, check the free
+times, book, look up, cancel or move); our code checks the arguments, runs the tool and sends the result back, in a
+loop with limits. The conversation is saved in PostgreSQL, so "book the second one" works. A booking, cancelling or
+moving never runs when the model asks: the patient sees the details (read from the database) and must reply "yes".
 
-Pick a model in `.env` (see `.env.example`): Gemini in the cloud, or Ollama on your laptop:
+The `messages` and `conversations` tables changed, so start the database fresh, then upload the documents again:
 
 ```bash
-ollama pull qwen2.5:3b              # only for the local block
+docker compose down -v
+docker compose up -d db
+uv run python -m app.db.setup
 uv run fastapi dev
-uv run python -m labs.answer "Do you take Allianz cards?"
-uv run python -m labs.answer_check  # 14 questions: the right source, or "I don't know"
+uv run python -m labs.upload_docs
 ```
 
-The prompts live in `app/prompts/answer/<version>/`. To try a new one, copy a folder, change it, and set
-`ANSWER_PROMPT_VERSION` in `.env`. Measure before and after with `labs/answer_check.py`.
+Then talk to the agent:
 
-The database and the documents are the same as Session 7 (if you're starting fresh, follow Session 7's steps first).
+```bash
+uv run python -m labs.first_call "Which dermatologist is free on Sunday?"   # what the model asks for (nothing runs)
+uv run python -m labs.chat                                                 # a conversation; an empty line ends it
+uv run python -m labs.booking_flow                                         # policy, schedule, confirm, book: 7 checks
+```
+
+The agent's rules live in `app/prompts/agent/<version>/`; its limits (`AGENT_MAX_STEPS`, `AGENT_TOKEN_BUDGET`,
+`AGENT_HISTORY_MESSAGES`) in `.env`. `POST /answer` from Session 8 is still there.
 
 You need Python 3.13 and [uv](https://docs.astral.sh/uv/). Never commit `.env`: it holds your API key (and, from Session 5, your database password).
 

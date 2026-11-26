@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "Clinic Booking Assistant"
-    APP_VERSION: str = "0.8.0"
+    APP_VERSION: str = "0.9.0"
     LOG_LEVEL: LogLevel = LogLevel.INFO
 
     # The LLM: no defaults, so the app refuses to start without them
@@ -34,6 +34,12 @@ class Settings(BaseSettings):
 
     # Answers (Session 8): which version of the prompt in app/prompts/answer/ to use
     ANSWER_PROMPT_VERSION: str = "v2"
+
+    # The agent (Session 9): its prompt, and the limits on each patient message
+    AGENT_PROMPT_VERSION: str = "v1"
+    AGENT_MAX_STEPS: int = Field(default=5, ge=1, le=10)  # model calls per patient message, at most
+    AGENT_TOKEN_BUDGET: int = Field(default=20000, gt=0)  # tokens per patient message, at most
+    AGENT_HISTORY_MESSAGES: int = Field(default=30, ge=2)  # how many stored messages the model sees again
 
     # The clinic's data file: it must exist
     DOCTORS_PATH: FilePath = BASE_DIR / "data" / "doctors.json"

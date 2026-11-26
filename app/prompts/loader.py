@@ -14,15 +14,20 @@ class Prompt:
     """One version of one prompt: the rules (the system message) and the user message, with blanks."""
     name: str
     version: str
-    rules: str
+    rules: Template  # may have blanks too, like $calendar (Session 9)
     question: Template  # blanks look like $evidence and $question
 
+    def system(self, **values: str) -> dict:
+        """The rules, as the system message. A blank left empty is an error, not a silent gap."""
+        return {"role": Role.SYSTEM, "content": self.rules.substitute(values)}
+
+    def user(self, **values: str) -> dict:
+        """The user message, its blanks filled."""
+        return {"role": Role.USER, "content": self.question.substitute(values)}
+
     def messages(self, **values: str) -> list[dict]:
-        """The two messages for the model. A blank left empty is an error, not a silent gap."""
-        return [
-            {"role": Role.SYSTEM, "content": self.rules},
-            {"role": Role.USER, "content": self.question.substitute(values)},
-        ]
+        """The two messages for the model: the rules, then the user message."""
+        return [self.system(**values), self.user(**values)]
 
 
 def load_prompt(name: str, version: str) -> Prompt:
@@ -33,6 +38,6 @@ def load_prompt(name: str, version: str) -> Prompt:
     return Prompt(
         name=name,
         version=version,
-        rules=(folder / "rules.md").read_text(encoding="utf-8").strip(),
+        rules=Template((folder / "rules.md").read_text(encoding="utf-8").strip()),
         question=Template((folder / "question.md").read_text(encoding="utf-8").strip()),
     )

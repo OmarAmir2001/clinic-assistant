@@ -8,13 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.repositories.appointments import AppointmentRepository
 from app.repositories.chunks import ChunkRepository
+from app.repositories.conversations import ConversationRepository
 from app.repositories.doctors import DoctorRepository
 from app.repositories.documents import DocumentRepository
 from app.repositories.slots import SlotRepository
+from app.services.agent import AgentService
 from app.services.answer import AnswerService
 from app.services.booking import BookingService
 from app.services.ingestion import IngestionService
 from app.services.search import SearchService
+from app.services.tools import ClinicTools
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -23,13 +26,23 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+async def get_memory_session(request: Request) -> AsyncIterator[AsyncSession]:
+    """A second session, only for the chat's memory (Session 9). Saving messages never mixes with a booking."""
+    async with request.app.state.sessions() as session:
+        yield session
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+MemorySessionDep = Annotated[AsyncSession, Depends(get_memory_session)]
 
 
 def get_booking_service(session: SessionDep) -> BookingService:
     # Built for each request, around that request's session
     return BookingService(session, DoctorRepository(session), SlotRepository(session), AppointmentRepository(session))
+
+
+BookingServiceDep = Annotated[BookingService, Depends(get_booking_service)]
 
 
 def get_ingestion_service(request: Request, session: SessionDep, settings: SettingsDep) -> IngestionService:
@@ -52,7 +65,21 @@ def get_answer_service(request: Request, search: SearchServiceDep, settings: Set
     return AnswerService(search, state.llm, state.answer_prompt, settings)
 
 
+def get_agent_service(
+    request: Request,
+    session: SessionDep,
+    booking: BookingServiceDep,
+    search: SearchServiceDep,
+    memory: MemorySessionDep,
+    settings: SettingsDep,
+) -> AgentService:
+    # The tools use this request's session and services; the memory has its own session
+    state = request.app.state
+    tools = ClinicTools(session, booking, search, settings)
+    return AgentService(state.llm, state.agent_prompt, tools, ConversationRepository(memory), settings)
+
+
 # Short names for "give me this object" in a route's parameters
+AgentServiceDep = Annotated[AgentService, Depends(get_agent_service)]
 AnswerServiceDep = Annotated[AnswerService, Depends(get_answer_service)]
-BookingServiceDep = Annotated[BookingService, Depends(get_booking_service)]
 IngestionServiceDep = Annotated[IngestionService, Depends(get_ingestion_service)]

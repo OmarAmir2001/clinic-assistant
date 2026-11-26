@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from app.api.errors import add_error_handlers
 from app.api.limits import BodySizeLimit
-from app.api.routes import answer, appointments, doctors, documents, health, search
+from app.api.routes import answer, appointments, chat, doctors, documents, health, search
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.database import check_database, make_engine, make_sessions
@@ -49,7 +49,9 @@ async def lifespan(app: FastAPI):
     # The model's client and the answer prompt (Session 8): made once. A missing prompt version stops here
     app.state.llm = OpenAICompatibleLLM(settings)
     app.state.answer_prompt = load_prompt("answer", settings.ANSWER_PROMPT_VERSION)
-    logger.info("LLM: %s at %s, prompt answer/%s", settings.LLM_MODEL, settings.LLM_BASE_URL, settings.ANSWER_PROMPT_VERSION)
+    app.state.agent_prompt = load_prompt("agent", settings.AGENT_PROMPT_VERSION)  # Session 9
+    logger.info("LLM: %s at %s, prompts answer/%s and agent/%s", settings.LLM_MODEL, settings.LLM_BASE_URL,
+                settings.ANSWER_PROMPT_VERSION, settings.AGENT_PROMPT_VERSION)
     logger.info("%s is ready", settings.APP_NAME)
     yield
     logger.info("%s is shutting down", settings.APP_NAME)
@@ -86,6 +88,7 @@ def create_app() -> FastAPI:
     add_error_handlers(app)
     app.include_router(health.router)
     app.include_router(answer.router)
+    app.include_router(chat.router)
     app.include_router(doctors.router)
     app.include_router(appointments.router)
     app.include_router(documents.router)
