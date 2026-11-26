@@ -27,10 +27,6 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-def get_answer_service(request: Request) -> AnswerService:
-    return request.app.state.answer_service
-
-
 def get_booking_service(session: SessionDep) -> BookingService:
     # Built for each request, around that request's session
     return BookingService(session, DoctorRepository(session), SlotRepository(session), AppointmentRepository(session))
@@ -47,8 +43,16 @@ def get_search_service(request: Request, session: SessionDep, settings: Settings
     return SearchService(ChunkRepository(session), state.embeddings, state.reranker, settings)
 
 
+SearchServiceDep = Annotated[SearchService, Depends(get_search_service)]
+
+
+def get_answer_service(request: Request, search: SearchServiceDep, settings: SettingsDep) -> AnswerService:
+    # Search is per request; the model's client and the prompt were made once, at startup
+    state = request.app.state
+    return AnswerService(search, state.llm, state.answer_prompt, settings)
+
+
 # Short names for "give me this object" in a route's parameters
 AnswerServiceDep = Annotated[AnswerService, Depends(get_answer_service)]
 BookingServiceDep = Annotated[BookingService, Depends(get_booking_service)]
 IngestionServiceDep = Annotated[IngestionService, Depends(get_ingestion_service)]
-SearchServiceDep = Annotated[SearchService, Depends(get_search_service)]

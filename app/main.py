@@ -8,16 +8,16 @@ from pydantic import ValidationError
 
 from app.api.errors import add_error_handlers
 from app.api.limits import BodySizeLimit
-from app.api.routes import appointments, chat, doctors, documents, health, search
+from app.api.routes import answer, appointments, doctors, documents, health, search
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.database import check_database, make_engine, make_sessions
 from app.db.models import EMBEDDING_DIM
+from app.prompts.loader import load_prompt
 from app.providers.embeddings.e5 import E5Embeddings
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM
 from app.providers.rerankers.cross_encoder import CrossEncoderReranker
 from app.repositories.files import FileStore
-from app.services.answer import AnswerService
 
 logger = logging.getLogger("app.main")
 
@@ -46,8 +46,10 @@ async def lifespan(app: FastAPI):
         )
     app.state.reranker = CrossEncoderReranker(settings.RERANKER_MODEL)
 
-    llm = OpenAICompatibleLLM(settings)
-    app.state.answer_service = AnswerService(llm, settings)
+    # The model's client and the answer prompt (Session 8): made once. A missing prompt version stops here
+    app.state.llm = OpenAICompatibleLLM(settings)
+    app.state.answer_prompt = load_prompt("answer", settings.ANSWER_PROMPT_VERSION)
+    logger.info("LLM: %s at %s, prompt answer/%s", settings.LLM_MODEL, settings.LLM_BASE_URL, settings.ANSWER_PROMPT_VERSION)
     logger.info("%s is ready", settings.APP_NAME)
     yield
     logger.info("%s is shutting down", settings.APP_NAME)
@@ -83,7 +85,7 @@ def create_app() -> FastAPI:
     # 4. One error shape for everything, then one router per feature
     add_error_handlers(app)
     app.include_router(health.router)
-    app.include_router(chat.router)
+    app.include_router(answer.router)
     app.include_router(doctors.router)
     app.include_router(appointments.router)
     app.include_router(documents.router)

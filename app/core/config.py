@@ -21,17 +21,21 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "Clinic Booking Assistant"
-    APP_VERSION: str = "0.7.0"
+    APP_VERSION: str = "0.8.0"
     LOG_LEVEL: LogLevel = LogLevel.INFO
 
     # The LLM: no defaults, so the app refuses to start without them
     LLM_BASE_URL: str
     LLM_API_KEY: SecretStr
     LLM_MODEL: str
-    LLM_TIMEOUT_SECONDS: float = Field(default=30, gt=0)
+    LLM_TIMEOUT_SECONDS: float = Field(default=30, gt=0)  # how long one try may take
+    LLM_MAX_RETRIES: int = Field(default=1, ge=0, le=3)  # tries after the first one (the client's own default is 2)
+    LLM_TEMPERATURE: float = Field(default=0, ge=0, le=2)  # 0: the most likely words, the same answer every time
 
-    # The clinic's data files: they must exist
-    CLINIC_INFO_PATH: FilePath = BASE_DIR / "data" / "clinic_info.md"
+    # Answers (Session 8): which version of the prompt in app/prompts/answer/ to use
+    ANSWER_PROMPT_VERSION: str = "v2"
+
+    # The clinic's data file: it must exist
     DOCTORS_PATH: FilePath = BASE_DIR / "data" / "doctors.json"
 
     # Warn in the log when one question sends more tokens than this
