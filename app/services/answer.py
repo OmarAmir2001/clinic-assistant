@@ -14,7 +14,7 @@ from app.services.search import SearchHit, SearchService
 
 logger = logging.getLogger(__name__)
 
-ARABIC = re.compile(r"[؀-ۿ]")
+ARABIC = re.compile(r"[\u0600-\u06FF]")  # any Arabic letter
 DONT_KNOW = {
     "en": "I don't know. The clinic's documents don't answer this. The reception can help you.",
     "ar": "لا أعرف. مستندات العيادة لا تجيب عن هذا السؤال، ويمكن لموظفي الاستقبال مساعدتك.",
