@@ -22,6 +22,7 @@ from app.services.search import SearchService
 logger = logging.getLogger(__name__)
 
 TIME_PATTERN = r"^([01][0-9]|2[0-3]):[0-5][0-9]$"  # 24-hour time, like 18:00
+DOCTOR = "The doctor's name or specialty in the patient's own words, Arabic or English, like dermatology or أطفال"
 DAY = "A weekday in English, like monday (means the next one); or a date YYYY-MM-DD only if the patient gave a date"
 
 
@@ -38,13 +39,13 @@ class ListDoctors(BaseModel):
 
 class CheckAvailability(BaseModel):
     """The free times of one doctor on one day."""
-    doctor: str = Field(min_length=2, max_length=80, description="The doctor's name, or a specialty like dermatology")
+    doctor: str = Field(min_length=2, max_length=80, description=DOCTOR)
     day: Weekday | date = Field(description=DAY)
 
 
 class BookAppointment(BaseModel):
     """Book a free time for the patient. The patient is asked to confirm before anything is booked."""
-    doctor: str = Field(min_length=2, max_length=80, description="The doctor's name, or a specialty like dermatology")
+    doctor: str = Field(min_length=2, max_length=80, description=DOCTOR)
     day: Weekday | date = Field(description=DAY)
     time: str = Field(pattern=TIME_PATTERN, description="One of the free times from check_availability, like 18:00")
     patient_name: str = Field(min_length=2, max_length=80, description="The patient's full name")
@@ -165,6 +166,7 @@ def matches(doctor: Doctor, text: str) -> bool:
     """Does the model's text name this doctor, or their specialty? ("Dr. Karim", "كريم", "dermatologist")"""
     known = f"{doctor.name} {doctor.name_ar} {SPECIALTY_WORDS[doctor.specialty]}".lower()
     words = [w for w in text.lower().replace(".", " ").split() if len(w) >= 3 and w not in TITLES]
+    words = [w.removeprefix("ال") if len(w) > 4 else w for w in words]  # "الأطفال" (the children) -> "أطفال"
     return any(w in known for w in words)  # one word is enough: "Mona", "أطفال"
 
 
@@ -199,6 +201,12 @@ CONFIRM = {
 }
 VERBS = {"en": {"book": "book", "cancel": "cancel", "move": "move"},
          "ar": {"book": "حجز", "cancel": "إلغاء", "move": "نقل"}}
+LABELS = {  # the confirmation card's rows (Session 10), in the patient's language
+    "en": {"action": "Change", "appointment": "Appointment", "from": "From", "to": "To", "patient": "Patient",
+           "phone": "Phone", "reference": "Reference"},
+    "ar": {"action": "التغيير", "appointment": "الموعد", "from": "من", "to": "إلى", "patient": "المريض",
+           "phone": "الهاتف", "reference": "رقم الحجز"},
+}
 
 
 # ===== The tools =====
@@ -306,18 +314,24 @@ class ClinicTools:
     # ===== Before a change: what exactly will happen, read from the database, not from the model's words =====
 
     async def preview(self, call: ToolCall, language: str) -> dict:
-        """For book and cancel_or_reschedule: the change in the patient's language, and the exact arguments."""
-        verb = VERBS[language]
+        """For book and cancel_or_reschedule: the change in the patient's language, its details as rows for the
+        confirmation card (Session 10), and the exact arguments. Rows are [label, value] pairs, not a dict:
+        PostgreSQL's JSONB keeps a list's order, but not a dict's."""
+        verb, label = VERBS[language], LABELS[language]
         try:
             args = parse(call)
             if call.name == ToolName.BOOK_APPOINTMENT:
                 doctor = await self.find_doctor(args.doctor)
                 slot = await self.find_slot(doctor, as_date(args.day), args.time)
                 change = f"{verb['book']} {slot_text(doctor, slot, language)} · {args.patient_name} · {args.phone}"
+                rows = [[label["action"], verb["book"]], [label["appointment"], slot_text(doctor, slot, language)],
+                        [label["patient"], args.patient_name], [label["phone"], args.phone]]
                 exact = args.model_copy(update={"day": slot.day})  # "sunday" becomes the date we showed
             elif args.action == ChangeAction.CANCEL:
                 slot = (await self.booking.get_appointment(args.reference, args.phone)).slot
                 change = f"{verb['cancel']} {args.reference} ({slot_text(slot.doctor, slot, language)})"
+                rows = [[label["action"], verb["cancel"]], [label["reference"], args.reference],
+                        [label["appointment"], slot_text(slot.doctor, slot, language)]]
                 exact = args
             else:
                 appointment = await self.booking.get_appointment(args.reference, args.phone)
@@ -325,6 +339,8 @@ class ClinicTools:
                 doctor = appointment.slot.doctor  # a move keeps the same doctor
                 old, new = slot_text(doctor, appointment.slot, language), slot_text(doctor, slot, language)
                 change = f"{verb['move']} {args.reference}: {old} → {new}"
+                rows = [[label["action"], verb["move"]], [label["reference"], args.reference], [label["from"], old],
+                        [label["to"], new]]
                 exact = args.model_copy(update={"new_day": slot.day})
         except AppError as error:
             logger.info("Tool %s %s -> error: %s", call.name, masked(call.arguments), error.message)
@@ -332,4 +348,5 @@ class ClinicTools:
         finally:
             await self.end_reads()
         logger.info("Tool %s %s -> waiting for the patient's yes", call.name, masked(call.arguments))
-        return {"confirm": CONFIRM[language].format(change=change), "arguments": exact.model_dump_json()}
+        return {"confirm": CONFIRM[language].format(change=change), "details": rows,
+                "arguments": exact.model_dump_json()}

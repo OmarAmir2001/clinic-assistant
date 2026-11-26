@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "Clinic Booking Assistant"
-    APP_VERSION: str = "0.9.0"
+    APP_VERSION: str = "0.10.0"
     LOG_LEVEL: LogLevel = LogLevel.INFO
 
     # The LLM: no defaults, so the app refuses to start without them

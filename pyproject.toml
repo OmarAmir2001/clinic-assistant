@@ -14,6 +14,7 @@ dependencies = [
     "pymupdf>=2.1",
     "sentence-transformers>=5",
     "sqlalchemy[asyncio]>=2.1",
+    "streamlit>=1.67.0",
     "torch>=2.15.0",
 ]
 
