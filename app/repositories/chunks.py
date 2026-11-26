@@ -49,10 +49,3 @@ class ChunkRepository:
         """The chunks themselves, with their document, for the ids search picked."""
         rows = await self.session.scalars(select(Chunk).where(Chunk.id.in_(ids)).options(joinedload(Chunk.document)))
         return {chunk.id: chunk for chunk in rows}
-
-    async def without_embedding(self, limit: int) -> list[Chunk]:
-        """Chunks saved before Session 7, still waiting for their embedding."""
-        rows = await self.session.scalars(
-            select(Chunk).where(Chunk.embedding.is_(None)).order_by(Chunk.id).limit(limit)
-        )
-        return list(rows)
