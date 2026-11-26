@@ -28,6 +28,8 @@ if __name__ == "__main__":
         replies = []
         for message in STEPS:
             body = client.post("/chat", json={"conversation_id": conversation_id, "message": message}).json()
+            if "error" in body:  # the model is busy or down (a 503), or another refusal: say so, don't crash
+                raise SystemExit(f"You:   {message}\nThe API answered: {body['error']['message']}\nTry again in a minute.")
             conversation_id = body["conversation_id"]
             replies.append(body)
             print(f"You:   {message}\nAgent: {body['reply']}\n       tools: {', '.join(body['tools_used'])}\n")
