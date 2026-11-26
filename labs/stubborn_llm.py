@@ -16,7 +16,7 @@ class Stubborn(BaseHTTPRequestHandler):
     calls = 0
 
     def do_POST(self):
-        self.rfile.read(int(self.headers["Content-Length"]))  # the request: we don't even read it
+        self.rfile.read(int(self.headers["Content-Length"]))  # read the request, and ignore it
         Stubborn.calls += 1
         print(f"{time.strftime('%H:%M:%S')}  call {Stubborn.calls}: asking for check_availability again", flush=True)
         message = {"role": "assistant", "content": "",
