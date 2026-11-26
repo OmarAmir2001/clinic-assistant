@@ -15,6 +15,7 @@ class Role(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+    TOOL = "tool"  # a tool's result, sent back to the model (Session 9)
 
 
 class Specialty(StrEnum):
@@ -47,3 +48,19 @@ class AppointmentStatus(StrEnum):
     """Where a booking stands. A cancelled booking stays in the table, so its history is kept."""
     BOOKED = "booked"
     CANCELLED = "cancelled"
+
+
+class ToolName(StrEnum):
+    """The six things the agent may ask our code to do (Session 9)."""
+    SEARCH_CLINIC_DOCS = "search_clinic_docs"
+    LIST_DOCTORS = "list_doctors"
+    CHECK_AVAILABILITY = "check_availability"
+    BOOK_APPOINTMENT = "book_appointment"
+    GET_APPOINTMENT = "get_appointment"
+    CANCEL_OR_RESCHEDULE = "cancel_or_reschedule"
+
+
+class ChangeAction(StrEnum):
+    """What cancel_or_reschedule should do with an appointment."""
+    CANCEL = "cancel"
+    RESCHEDULE = "reschedule"

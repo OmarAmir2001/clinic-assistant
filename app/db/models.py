@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import CheckConstraint, Computed, DateTime, ForeignKey, Index, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # The embedding model's vector size. It must match the model in settings: the app checks at startup.
@@ -105,21 +105,27 @@ class Appointment(Base):
     slot: Mapped[TimeSlot] = relationship()  # appointment.slot, then appointment.slot.doctor (Session 6)
 
 
-# ===== Chat: conversations and their messages =====
+# ===== Chat: conversations and their messages (the agent's memory, Session 9) =====
 
 class Conversation(Base):
     __tablename__ = "conversations"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # A change the patient was asked to confirm, waiting for their "yes": {"id", "tool", "arguments", "confirm"}
+    pending_action: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))  # None: SQL NULL, not JSON null
 
 
 class Message(Base):
-    __tablename__ = "messages"
-    __table_args__ = (CheckConstraint("role IN ('user', 'assistant')", name="message_role"),)
+    """One message, stored exactly as the model saw it, so the next turn can send it again."""
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    __tablename__ = "messages"
+    __table_args__ = (CheckConstraint("role IN ('user', 'assistant', 'tool')", name="message_role"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)  # also their order in the conversation
     conversation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"))
     role: Mapped[str]
-    content: Mapped[str]
+    content: Mapped[str] = mapped_column(default="")
+    tool_calls: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))  # the tools the model asked for
+    tool_call_id: Mapped[str | None]  # which call this result answers (tool messages)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
