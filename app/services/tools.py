@@ -66,6 +66,22 @@ class CancelOrReschedule(BaseModel):
     new_time: str | None = Field(default=None, pattern=TIME_PATTERN, description="For reschedule: like 18:00")
 
 
+def without_refs(schema: dict) -> dict:
+    """Put each shared definition ("$defs") where it is used ("$ref"). Not every server follows references."""
+    definitions = schema.pop("$defs", {})
+
+    def resolve(node):
+        if isinstance(node, dict):
+            if "$ref" in node:  # {"$ref": "#/$defs/Weekday"} -> the Weekday definition itself
+                return resolve(definitions[node["$ref"].split("/")[-1]])
+            return {key: resolve(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [resolve(item) for item in node]
+        return node
+
+    return resolve(schema)
+
+
 @dataclass(frozen=True)
 class Tool:
     """One thing the model may ask for: its name, the form for its arguments, and whether it changes anything."""
@@ -80,7 +96,7 @@ class Tool:
             "function": {
                 "name": self.name,
                 "description": self.form.__doc__,
-                "parameters": self.form.model_json_schema(),
+                "parameters": without_refs(self.form.model_json_schema()),
             },
         }
 
@@ -158,6 +174,11 @@ def as_date(day: Weekday | date) -> date:
         return day
     today = date.today()
     return next(today + timedelta(days=n) for n in range(7) if f"{today + timedelta(days=n):%A}".lower() == day)
+
+
+def calendar(today: date, days: int = 14) -> str:
+    """The next two weeks, written out. Small models are bad at date arithmetic: we do it for them."""
+    return "\n".join(f"- {day:%A} {day.isoformat()}" for day in (today + timedelta(days=n) for n in range(days)))
 
 
 WEEKDAYS_AR = {"Saturday": "السبت", "Sunday": "الأحد", "Monday": "الاثنين", "Tuesday": "الثلاثاء",

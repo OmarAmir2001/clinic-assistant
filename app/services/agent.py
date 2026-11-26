@@ -4,7 +4,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 
 from fastapi.concurrency import run_in_threadpool
 
@@ -16,7 +16,7 @@ from app.prompts.loader import Prompt
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM, ToolCall
 from app.repositories.conversations import ConversationRepository
 from app.services.answer import ARABIC
-from app.services.tools import SPECS, TOOLS, ClinicTools, as_json
+from app.services.tools import SPECS, TOOLS, ClinicTools, as_json, calendar
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +32,6 @@ def is_yes(text: str) -> bool:
     """Does the patient's message start with a yes? ("yes", "Yes, book it", "نعم")"""
     words = re.findall(r"\w+", text.lower())
     return bool(words) and words[0] in YES
-
-
-def calendar(today: date, days: int = 14) -> str:
-    """The next two weeks, written out. Small models are bad at date arithmetic: we do it for them."""
-    return "\n".join(f"- {day:%A} {day.isoformat()}" for day in (today + timedelta(days=n) for n in range(days)))
 
 
 def assistant_message(text: str, calls: list[ToolCall]) -> dict:

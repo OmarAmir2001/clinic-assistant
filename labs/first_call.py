@@ -8,8 +8,7 @@ from datetime import date
 from app.core.config import get_settings
 from app.prompts.loader import load_prompt
 from app.providers.llm.openai_compatible import OpenAICompatibleLLM
-from app.services.agent import calendar
-from app.services.tools import SPECS
+from app.services.tools import SPECS, calendar
 
 if __name__ == "__main__":
     settings = get_settings()

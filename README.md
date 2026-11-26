@@ -51,6 +51,7 @@ Then talk to the agent:
 uv run python -m labs.first_call "Which dermatologist is free on Sunday?"   # what the model asks for (nothing runs)
 uv run python -m labs.chat                                                 # a conversation; an empty line ends it
 uv run python -m labs.booking_flow                                         # policy, schedule, confirm, book: 7 checks
+uv run python -m labs.stubborn_llm   # a pretend model that never stops asking for tools (set LLM_BASE_URL to try it)
 ```
 
 The agent's rules live in `app/prompts/agent/<version>/`; its limits (`AGENT_MAX_STEPS`, `AGENT_TOKEN_BUDGET`,
