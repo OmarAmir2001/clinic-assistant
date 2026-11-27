@@ -15,6 +15,10 @@ Use the clinic's documents, or your own: upload them from the chat page's sideba
 | A schedule question | Real free times, from the database |
 | A booking that needs more than one tool | Free times → the confirmation card → "Yes" → a booking reference |
 
+For one of the three, also say **what it cost**: how many model calls it made, the tokens in and out (the API log prints
+`LLM call done: ... tokens in, ... tokens out` for every call), and the price. Use your model's current price per million
+tokens from the provider's pricing page; on a free key the bill is zero, but the tokens are the same.
+
 ### 2. One failure, diagnosed
 
 Find a message your assistant gets wrong. Then:
@@ -42,7 +46,7 @@ AD-6) are good places to start.
 
 | Part | Points |
 | --- | --- |
-| Three flows work live, including the multi-tool booking | 4 |
+| Three flows work live, including the multi-tool booking, and what one of them cost | 4 |
 | The failure: symptom, trace, the right layer with evidence, a fix | 4 |
 | Two decisions: options, reason and cost for each | 2 |
 
